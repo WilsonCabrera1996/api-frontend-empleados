@@ -6,7 +6,7 @@ const http = require('http');
 const app = express();
 const PORT = process.env.PORT || 8080;
 const DIST_FOLDER = path.join(__dirname, 'dist', 'api-frontend-empleados', 'browser');
-const BACKEND_HOST = process.env.BACKEND_HOST || '3.147.76.228';
+const BACKEND_HOST = process.env.BACKEND_HOST || '3.15.218.45';
 const BACKEND_PORT = process.env.BACKEND_PORT || 80;
 
 // Verificación básica del build antes de iniciar
