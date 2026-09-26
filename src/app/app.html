@@ -1,0 +1,330 @@
+<div class="dashboard-wrapper">
+  <!-- Encabezado Principal -->
+  <header class="dashboard-header">
+    <div class="header-content">
+      <div class="brand">
+        <div class="logo-icon">👥</div>
+        <div>
+          <h1>{{ title }}</h1>
+          <p class="subtitle">Gestión integral de personal y nómina en tiempo real</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span class="status-badge live">
+          <span class="status-dot"></span> Backend Activo
+        </span>
+        <button class="btn btn-secondary btn-icon" (click)="cargarEmpleados()" [disabled]="isLoading()" title="Recargar lista">
+          <span [class.spinning]="isLoading()">🔄</span>
+          <span>Actualizar</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Notificación / Feedback Toast -->
+  @if (feedback()) {
+    <div class="alert alert-{{ feedback()?.type }}">
+      <div class="alert-content">
+        <span class="alert-icon">
+          @if (feedback()?.type === 'success') { ✅ }
+          @else if (feedback()?.type === 'error') { ⚠️ }
+          @else { ℹ️ }
+        </span>
+        <span>{{ feedback()?.text }}</span>
+      </div>
+      <button class="alert-close" (click)="closeFeedback()">&times;</button>
+    </div>
+  }
+
+  <main class="dashboard-container">
+    <!-- Fila de Estadísticas -->
+ 
+
+    <!-- Contenido Principal: Formulario + Listado en un solo Dashboard -->
+    <div class="main-grid">
+      <!-- Columna 1: Formulario CRUD -->
+      <section class="card form-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <h2 class="card-title">
+              @if (isEditing()) {
+                ✏️ Editar Empleado
+              } @else {
+                ➕ Registrar Empleado
+              }
+            </h2>
+            <p class="card-subtitle">
+              @if (isEditing()) {
+                Actualiza los datos del empleado seleccionado
+              } @else {
+                Ingresa los datos para dar de alta a un colaborador
+              }
+            </p>
+          </div>
+          @if (isEditing()) {
+            <span class="badge badge-warning">Modo Edición</span>
+          }
+        </div>
+
+        <form (ngSubmit)="submitForm()" class="employee-form" novalidate>
+          <div class="form-group">
+            <label for="nombre">Nombre Completo <span class="required">*</span></label>
+            <input
+              id="nombre"
+              type="text"
+              name="nombre"
+              [(ngModel)]="formData.nombre"
+              placeholder="Ej. Carlos Pérez Gómez"
+              class="form-control"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="cargo">Cargo / Puesto <span class="required">*</span></label>
+            <input
+              id="cargo"
+              type="text"
+              name="cargo"
+              [(ngModel)]="formData.cargo"
+              placeholder="Ej. Desarrollador Fullstack"
+              class="form-control"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="departamento">Departamento <span class="required">*</span></label>
+            <div class="select-wrapper">
+              <select
+                id="departamento"
+                name="departamento"
+                [(ngModel)]="formData.departamento"
+                class="form-control"
+                required
+              >
+                @for (dept of availableDepartments; track dept) {
+                  <option [value]="dept">{{ dept }}</option>
+                }
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="sueldo">Sueldo Mensual (USD) <span class="required">*</span></label>
+            <div class="input-with-prefix">
+              <span class="prefix">$</span>
+              <input
+                id="sueldo"
+                type="number"
+                name="sueldo"
+                [(ngModel)]="formData.sueldo"
+                placeholder="1500"
+                min="1"
+                step="50"
+                class="form-control pl-dollar"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="form-actions">
+            @if (isEditing()) {
+              <button
+                type="button"
+                class="btn btn-secondary"
+                (click)="cancelEdit()"
+                [disabled]="isSaving()"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                class="btn btn-primary"
+                [disabled]="isSaving()"
+              >
+                @if (isSaving()) {
+                  <span class="spinning">🔄</span> Guardando...
+                } @else {
+                  💾 Actualizar Empleado
+                }
+              </button>
+            } @else {
+              <button
+                type="button"
+                class="btn btn-secondary"
+                (click)="resetForm()"
+                [disabled]="isSaving()"
+              >
+                Limpiar
+              </button>
+              <button
+                type="submit"
+                class="btn btn-success"
+                [disabled]="isSaving()"
+              >
+                @if (isSaving()) {
+                  <span class="spinning">🔄</span> Registrando...
+                } @else {
+                  ➕ Agregar Empleado
+                }
+              </button>
+            }
+          </div>
+        </form>
+      </section>
+
+      <!-- Columna 2: Tabla y Filtros de Empleados -->
+      <section class="card list-card">
+        <div class="card-header flex-between">
+          <div>
+            <h2 class="card-title">📋 Directorio de Empleados</h2>
+            <p class="card-subtitle">
+              Los nuevos registros aparecen en la <strong>parte superior</strong> automáticamente.
+            </p>
+          </div>
+          <span class="badge badge-info">
+            {{ filteredEmpleados().length }} de {{ totalEmpleados() }}
+          </span>
+        </div>
+
+        <!-- Filtros y Búsqueda -->
+        <div class="filters-bar">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input
+              type="text"
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+              placeholder="Buscar por nombre, cargo o departamento..."
+              class="form-control search-input"
+            />
+            @if (searchTerm()) {
+              <button class="clear-search" (click)="searchTerm.set('')">&times;</button>
+            }
+          </div>
+
+          <div class="dept-filter">
+            <select
+              [ngModel]="selectedDepartment()"
+              (ngModelChange)="selectedDepartment.set($event)"
+              class="form-control"
+            >
+              <option value="todos">Todos los departamentos</option>
+              @for (dept of availableDepartments; track dept) {
+                <option [value]="dept">{{ dept }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <!-- Tabla de Datos -->
+        <div class="table-container">
+          @if (isLoading()) {
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>Cargando lista de empleados...</p>
+            </div>
+          } @else {
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Empleado</th>
+                  <th>Cargo</th>
+                  <th>Departamento</th>
+                  <th>Sueldo</th>
+                  <th>Fecha Registro</th>
+                  <th class="text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (emp of filteredEmpleados(); track emp._id || emp.nombre + $index) {
+                  <tr [class.highlight-row]="isEditing() && currentEditingId() === emp._id">
+                    <td>
+                      <div class="user-cell">
+                        <div class="avatar">{{ emp.nombre.charAt(0).toUpperCase() }}</div>
+                        <div class="user-names">
+                          <strong class="user-name">{{ emp.nombre }}</strong>
+                          @if ($first) {
+                            <span class="badge badge-new">Último</span>
+                          }
+                        </div>
+                      </div>
+                    </td>
+                    <td>{{ emp.cargo }}</td>
+                    <td>
+                      <span class="dept-badge">{{ emp.departamento }}</span>
+                    </td>
+                    <td class="salary-cell">
+                      {{ emp.sueldo | currency:'USD':'symbol':'1.0-0' }}
+                    </td>
+                    <td class="date-cell">
+                      @if (emp.createdAt) {
+                        {{ emp.createdAt | date:'dd/MM/yyyy HH:mm' }}
+                      } @else {
+                        <span class="text-muted">N/D</span>
+                      }
+                    </td>
+                    <td class="text-center">
+                      <div class="action-buttons">
+                        <button
+                          class="btn-action btn-edit"
+                          (click)="editEmpleado(emp)"
+                          title="Editar empleado"
+                        >
+                          ✏️ Editar
+                        </button>
+                        <button
+                          class="btn-action btn-delete"
+                          (click)="requestDelete(emp)"
+                          title="Eliminar empleado"
+                        >
+                          🗑️ Eliminar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="6" class="empty-state">
+                      <div class="empty-content">
+                        <span class="empty-icon">📭</span>
+                        <p class="empty-title">No se encontraron empleados</p>
+                        <p class="empty-subtitle">
+                          @if (searchTerm() || selectedDepartment() !== 'todos') {
+                            No hay resultados con los filtros actuales. Intenta limpiar los criterios.
+                          } @else {
+                            Aún no hay empleados registrados en el sistema. Utiliza el formulario para agregar uno.
+                          }
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Modal de Confirmación de Eliminación -->
+  @if (pendingDelete()) {
+    <div class="modal-backdrop" (click)="cancelDelete()">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-icon">⚠️</div>
+        <h3>¿Confirmar eliminación?</h3>
+        <p>
+          ¿Estás seguro de que deseas eliminar al empleado
+          <strong>{{ pendingDelete()?.nombre }}</strong>?
+        </p>
+        <p class="modal-warning">Esta acción no se puede revertir.</p>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" (click)="cancelDelete()">Cancelar</button>
+          <button class="btn btn-danger" (click)="confirmDelete()">Sí, Eliminar</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>
