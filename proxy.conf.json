@@ -1,6 +1,6 @@
 {
   "/api": {
-    "target": "http://3.147.76.228",
+    "target": "http://3.15.218.45/",
     "secure": false,
     "changeOrigin": true,
     "logLevel": "info"
